@@ -911,7 +911,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
                     role: "user",
                     parts: [
                         { text: fullPrompt },
-                        { inlineData: { mimeType: "image/png", data: canvasData } }
+                        { inlineData: { mimeType: "image/jpeg", data: canvasData } }
                     ]
                 }],
                 generationConfig: {
@@ -1018,7 +1018,8 @@ Return a JSON object containing a "translations" array exactly matching the requ
             spinner.classList.remove('hidden');
 
             try {
-                const canvasData = canvas.toDataURL('image/png').split(',')[1];
+                // Use JPEG with quality 0.7 to significantly reduce Base64 payload size for Serverless
+                const canvasData = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
                 const canvasW = canvas.offsetWidth;
                 const canvasH = canvas.offsetHeight;
 
@@ -1105,7 +1106,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
                         tempCanvas.width = viewport.width;
                         tempCanvas.height = viewport.height;
                         await page.render({ canvasContext: bgCtx, viewport: viewport }).promise;
-                        canvasData = tempCanvas.toDataURL('image/png').split(',')[1];
+                        canvasData = tempCanvas.toDataURL('image/jpeg', 0.7).split(',')[1];
                         canvasW = viewport.width;
                         canvasH = viewport.height;
                     } else {
@@ -1117,7 +1118,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
                         tempCanvas.width = img.width;
                         tempCanvas.height = img.height;
                         bgCtx.drawImage(img, 0, 0);
-                        canvasData = tempCanvas.toDataURL('image/png').split(',')[1];
+                        canvasData = tempCanvas.toDataURL('image/jpeg', 0.7).split(',')[1];
                         canvasW = img.width;
                         canvasH = img.height;
                     }
@@ -1137,7 +1138,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
                             role: "user",
                             parts: [
                                 { text: fullPrompt },
-                                { inlineData: { mimeType: "image/png", data: canvasData } }
+                                { inlineData: { mimeType: "image/jpeg", data: canvasData } }
                             ]
                         }],
                         generationConfig: {
