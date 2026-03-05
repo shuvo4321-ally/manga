@@ -1128,7 +1128,9 @@ Return a JSON object containing a "translations" array exactly matching the requ
                     let canvasW = 0, canvasH = 0;
                     let bgCtx = null;
 
+                    let currentFileName = "";
                     if (isPdfMode) {
+                        currentFileName = `Page ${i}`;
                         const tempCanvas = document.createElement('canvas');
                         bgCtx = tempCanvas.getContext('2d');
                         const page = await pdfDoc.getPage(i);
@@ -1140,11 +1142,11 @@ Return a JSON object containing a "translations" array exactly matching the requ
                         canvasW = viewport.width;
                         canvasH = viewport.height;
                     } else {
+                        currentFileName = zipImages[i - 1].name || `Page ${i}`;
                         const tempCanvas = document.createElement('canvas');
                         bgCtx = tempCanvas.getContext('2d');
                         const img = new Image();
                         img.src = zipImages[i - 1].url;
-                        const currentFileName = zipImages[i - 1].name;
                         await new Promise(r => img.onload = r);
                         tempCanvas.width = img.width;
                         tempCanvas.height = img.height;
