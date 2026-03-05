@@ -470,12 +470,12 @@ Return a JSON object containing a "translations" array exactly matching the requ
 
                 const brightness = (r * 299 + g * 587 + b * 114) / 1000;
 
-                if (brightness < 80) return { bg: '#000000', text: '#ffffff' };
-                if (brightness < 220) {
-                    const hex = '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
-                    return { bg: hex, text: brightness > 140 ? '#000000' : '#ffffff' };
+                // Return ONLY flat Black or White based on brightness for a cleaner "Flat" look
+                if (brightness < 140) {
+                    return { bg: '#000000', text: '#ffffff' };
+                } else {
+                    return { bg: '#ffffff', text: '#000000' };
                 }
-                return { bg: '#ffffff', text: '#000000' };
             } catch (e) {
                 return { bg: '#ffffff', text: '#000000' };
             }
@@ -972,8 +972,9 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 let xPos = rawX - (padX / 2);
                 let yPos = rawY;
 
-                let finalBgColor = '#ffffff';
-                let finalTextColor = '#000000';
+                let colors = analyzeColors(bgCtx, xPos, yPos, boxW, boxH);
+                let finalBgColor = colors.bg;
+                let finalTextColor = colors.text;
 
                 if ((boxW * boxH) > (canvasW * canvasH * 0.30)) {
                     finalBgColor = 'transparent';
