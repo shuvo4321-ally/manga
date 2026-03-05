@@ -270,8 +270,8 @@
 <body class="font-sans min-h-screen flex flex-col">
 
     <!-- Sticky Control Panel (Reduced Font Size & Padding) -->
+    <!-- Sticky Top Navbar -->
     <div class="sticky top-0 z-50 w-full shadow-2xl flex flex-col">
-        <!-- Navbar -->
         <header
             class="bg-slate-900 text-white p-2 flex flex-wrap justify-between items-center gap-2 border-b border-slate-700">
             <div class="flex flex-col">
@@ -341,22 +341,24 @@
                 class="bg-indigo-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-indigo-500 transition shadow border border-indigo-400">Save
                 PDF</button>
     </div>
-    </header>
 
-    <!-- Page Navigation Toolbar -->
+    <!-- Fixed Bottom Navigation (Manual Verification Requirement) -->
     <div
-        class="bg-slate-800 p-1.5 flex flex-col sm:flex-row justify-center space-y-1 sm:space-y-0 sm:space-x-4 items-center text-xs shadow-inner">
-        <div class="flex items-center space-x-2">
+        class="fixed bottom-0 left-0 right-0 z-[60] bg-slate-900/95 backdrop-blur-md p-2 border-t border-slate-700 flex flex-col sm:flex-row justify-center space-y-1 sm:space-y-0 sm:space-x-8 items-center text-xs shadow-[0_-10px_25px_rgba(0,0,0,0.5)]">
+        <div class="flex items-center space-x-4">
             <button id="prev-btn"
-                class="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition font-medium">←
+                class="px-5 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition font-bold border border-slate-600 shadow-sm active:scale-95">←
                 Prev</button>
-            <span class="font-medium text-slate-300 mx-2">Page: <span id="page_num"
-                    class="text-blue-400 font-bold">0</span> / <span id="page_count">0</span></span>
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">Chapter
+                    Progress</span>
+                <span class="font-bold text-slate-300">Page <span id="page_num" class="text-blue-400">0</span> of <span
+                        id="page_count">0</span></span>
+            </div>
             <button id="next-btn"
-                class="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition font-medium">Next
+                class="px-5 py-2 bg-slate-800 text-slate-200 rounded-lg hover:bg-slate-700 transition font-bold border border-slate-600 shadow-sm active:scale-95">Next
                 →</button>
         </div>
-    </div>
     </div>
 
     <!-- Main Workspace -->
@@ -394,6 +396,7 @@
         let isMangaMode = false;
         let isForceWhiteMode = false;
         let uploadedTranscript = "";
+        let currentHoveredBox = null;
 
         // ==========================================
         // LOCALIZATION PROMPTS & SYSTEM INSTRUCTIONS
@@ -721,6 +724,9 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 box.remove();
             });
 
+            box.addEventListener('mouseenter', () => { currentHoveredBox = box; });
+            box.addEventListener('mouseleave', () => { if (currentHoveredBox === box) currentHoveredBox = null; });
+
             dragElement(box);
             return box;
         };
@@ -841,6 +847,25 @@ Return a JSON object containing a "translations" array exactly matching the requ
             if (e.target.isContentEditable || e.target.tagName === 'INPUT') return;
             if (e.key === 'ArrowLeft') goToPrevPage();
             if (e.key === 'ArrowRight') goToNextPage();
+
+            // Keyboard Shortcuts for active boxes (Manual Verification Requirement)
+            if (currentHoveredBox) {
+                const textContent = currentHoveredBox.querySelector('.text-content');
+                let currentFs = parseFloat(window.getComputedStyle(textContent).fontSize);
+
+                if (e.key === '+' || e.key === '=') {
+                    currentFs += 2;
+                    textContent.style.fontSize = currentFs + 'px';
+                }
+                if (e.key === '-' || e.key === '_') {
+                    currentFs = Math.max(8, currentFs - 2);
+                    textContent.style.fontSize = currentFs + 'px';
+                }
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                    currentHoveredBox.remove();
+                    currentHoveredBox = null;
+                }
+            }
         });
 
         // Handle Transcript File Uploads
