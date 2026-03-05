@@ -1,0 +1,16 @@
+{
+    "name": "google-lens-translator",
+    "version": "1.0.0",
+    "description": "A premium AI chat web app powered by Google Gemini",
+    "type": "module",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "node server.js"
+    },
+    "dependencies": {
+        "@google/generative-ai": "^0.24.0",
+        "dotenv": "^17.3.1",
+        "express": "^4.21.0"
+    }
+}

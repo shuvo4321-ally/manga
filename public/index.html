@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Lens Comic Translator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js for rendering PDF pages -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- JSZip for extracting ZIP files locally -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- html2canvas and jsPDF for exporting the edited result -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            background-color: #1e293b;
+            overflow-y: scroll;
+        }
+
+        #editor-container {
+            position: relative;
+            display: inline-block;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            background: white;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* --------------------------------------
+           Decoupled Manhwa Hover Engine
+        ---------------------------------------*/
+        .text-overlay {
+            position: absolute;
+            z-index: 10;
+            min-width: 10px;
+            min-height: 10px;
+            transform-origin: center center;
+            border-radius: 8px;
+            box-sizing: border-box;
+            cursor: move;
+        }
+
+        .text-overlay:hover,
+        .text-overlay.is-resizing,
+        .text-overlay:focus-within {
+            z-index: 30;
+            outline: 2px dashed #3b82f6 !important;
+            box-shadow: none !important;
+        }
+
+        .text-wrapper {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: max-content;
+            max-width: var(--line-limit-h, 250px);
+            min-width: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2;
+        }
+
+        .text-content {
+            pointer-events: auto;
+            outline: none;
+            line-height: 1.1;
+            letter-spacing: -0.5px;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', sans-serif;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-word;
+            text-wrap: balance;
+            text-align: center;
+            font-weight: 700;
+            width: max-content;
+            max-width: 100%;
+        }
+
+        .text-content.is-vertical {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            max-height: var(--line-limit-v, 250px);
+        }
+
+        .text-wrapper:has(.text-content.is-vertical) {
+            max-width: none;
+        }
+
+        .text-overlay.is-resizing .text-content {
+            pointer-events: none;
+            user-select: none;
+        }
+
+        /* --------------------------------------
+           Handles & Controls
+        ---------------------------------------*/
+        .resize-handle {
+            position: absolute;
+            background-color: white;
+            border: 2px solid #3b82f6;
+            z-index: 20;
+            display: none;
+        }
+
+        .text-overlay:hover .resize-handle,
+        .text-overlay.is-resizing .resize-handle,
+        .text-overlay:focus-within .resize-handle {
+            display: block;
+        }
+
+        .resize-nw,
+        .resize-ne,
+        .resize-sw,
+        .resize-se {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .resize-nw {
+            top: -6px;
+            left: -6px;
+            cursor: nwse-resize;
+        }
+
+        .resize-ne {
+            top: -6px;
+            right: -6px;
+            cursor: nesw-resize;
+        }
+
+        .resize-sw {
+            bottom: -6px;
+            left: -6px;
+            cursor: nesw-resize;
+        }
+
+        .resize-se {
+            bottom: -6px;
+            right: -6px;
+            cursor: nwse-resize;
+        }
+
+        .resize-w,
+        .resize-e {
+            width: 8px;
+            height: 20px;
+            border-radius: 4px;
+            top: calc(50% - 10px);
+        }
+
+        .resize-w {
+            left: -4px;
+            cursor: ew-resize;
+        }
+
+        .resize-e {
+            right: -4px;
+            cursor: ew-resize;
+        }
+
+        .resize-n,
+        .resize-s {
+            width: 20px;
+            height: 8px;
+            border-radius: 4px;
+            left: calc(50% - 10px);
+        }
+
+        .resize-n {
+            top: -4px;
+            cursor: ns-resize;
+        }
+
+        .resize-s {
+            bottom: -4px;
+            cursor: ns-resize;
+        }
+
+        .drag-handle {
+            position: absolute;
+            top: -32px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            height: 26px;
+            cursor: move;
+            border-radius: 6px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 0 10px;
+            user-select: none;
+            color: #f8fafc;
+            white-space: nowrap;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #334155;
+            z-index: 40;
+        }
+
+        .text-overlay:hover .drag-handle,
+        .text-overlay.is-resizing .drag-handle,
+        .text-overlay:focus-within .drag-handle {
+            display: flex;
+        }
+
+        .delete-btn {
+            font-size: 14px;
+            color: #fca5a5;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 12px;
+            padding-left: 12px;
+            border-left: 1px solid #475569;
+        }
+
+        .delete-btn:hover {
+            color: #ef4444;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #ffffff;
+            width: 12px;
+            height: 12px;
+            animation: spin 1s linear infinite;
+        }
+
+        .large-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #a855f7;
+            width: 48px;
+            height: 48px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .exporting .drag-handle,
+        .exporting .resize-handle {
+            display: none !important;
+        }
+
+        .exporting .text-overlay {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+    </style>
+</head>
+
+<body class="font-sans min-h-screen flex flex-col">
+
+    <!-- Sticky Control Panel (Reduced Font Size & Padding) -->
+    <div class="sticky top-0 z-50 w-full shadow-2xl flex flex-col">
+        <!-- Navbar -->
+        <header
+            class="bg-slate-900 text-white p-2 flex flex-wrap justify-between items-center gap-2 border-b border-slate-700">
+            <div class="flex flex-col">
+                <h1
+                    class="text-sm font-bold flex items-center bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                    <svg class="w-4 h-4 mr-1 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                        </path>
+                    </svg>
+                    Google Lens Comic Translator
+                </h1>
+                <span class="text-[10px] text-slate-400 mt-0.5">Decoupled Manhwa Layout Engine</span>
+            </div>
+            <div class="flex space-x-2 items-center flex-wrap">
+
+                <input type="file" id="file-upload" accept="application/pdf, application/zip, .zip"
+                    class="text-xs bg-slate-800 text-slate-300 rounded p-1 cursor-pointer max-w-[150px] border border-slate-600 focus:outline-none focus:border-blue-400">
+
+                <input type="file" id="transcript-upload" accept=".txt,.json,.md,.csv,text/plain"
+                    class="text-xs bg-slate-800 text-slate-300 rounded p-1 cursor-pointer max-w-[120px] border border-slate-600 focus:outline-none focus:border-emerald-400"
+                    title="Optional: Upload Script/Transcript (TXT, JSON, MD)">
+
+                <!-- Language Toggle -->
+                <div class="flex bg-slate-800 rounded p-0.5 border border-slate-600 shadow-inner">
+                    <button id="mode-manhwa-btn"
+                        class="px-2 py-1 rounded text-xs font-bold bg-blue-600 text-white shadow">🇰🇷 Manhwa</button>
+                    <button id="mode-manga-btn"
+                        class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">🇯🇵
+                        Manga</button>
+                </div>
+
+                <div class="h-5 w-px bg-slate-700 mx-1"></div>
+
+                <button id="translate-page-btn"
+                    class="bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-blue-500 transition shadow flex items-center"
+                    title="Translate ONLY the page you are currently viewing">
+                    <div class="spinner mr-1 hidden"></div>
+                    Lens This Page
+                </button>
+                <button id="translate-all-btn"
+                    class="bg-purple-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-purple-500 transition shadow flex items-center"
+                    title="Scans and translates every page in the chapter">
+                    <div class="spinner mr-1 hidden"></div>
+                    Lens Full Chapter
+                </button>
+
+                <div class="h-5 w-px bg-slate-700 mx-1"></div>
+
+                <button id="add-text-btn"
+                    class="bg-slate-700 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-slate-600 transition shadow">+
+                    Add Box</button>
+                <button id="export-img-btn"
+                    class="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-emerald-500 transition shadow">Save
+                    PNG</button>
+                <button id="export-btn"
+                    class="bg-indigo-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-indigo-500 transition shadow border border-indigo-400">Save
+                    PDF</button>
+            </div>
+        </header>
+
+        <!-- Page Navigation Toolbar -->
+        <div
+            class="bg-slate-800 p-1.5 flex flex-col sm:flex-row justify-center space-y-1 sm:space-y-0 sm:space-x-4 items-center text-xs shadow-inner">
+            <div class="flex items-center space-x-2">
+                <button id="prev-btn"
+                    class="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition font-medium">←
+                    Prev</button>
+                <span class="font-medium text-slate-300 mx-2">Page: <span id="page_num"
+                        class="text-blue-400 font-bold">0</span> / <span id="page_count">0</span></span>
+                <button id="next-btn"
+                    class="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition font-medium">Next
+                    →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <main class="flex-grow p-4 flex justify-center w-full overflow-x-auto pb-24">
+        <div id="editor-container" class="mx-auto rounded-lg">
+            <canvas id="pdf-canvas"></canvas>
+            <!-- Translation boxes spawn here -->
+        </div>
+    </main>
+
+    <script>
+        // Setup PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        // ==========================================
+        // GLOBAL STATE
+        // ==========================================
+        let isDocumentLoaded = false;
+        let isPdfMode = true;
+        let pdfDoc = null;
+        let zipImages = [];
+
+        let totalPages = 0;
+        let pageNum = 1;
+        let pageRendering = false;
+        let pageNumPending = null;
+        let scale = 1.5;
+
+        let canvas = document.getElementById('pdf-canvas');
+        let ctx = canvas.getContext('2d');
+
+        let pageOverlays = {};
+        let isExporting = false;
+        let isMangaMode = false;
+        let uploadedTranscript = "";
+
+        // ==========================================
+        // LOCALIZATION PROMPTS & SYSTEM INSTRUCTIONS
+        // ==========================================
+
+        const localizerPersona = `You are an elite, award-winning manga and manhwa localizer. Your translations are legendary for their natural flow, emotional resonance, and punchy dialogue. 
+1. TRANSLOCALIZE, DON'T TRANSLATE: Never output stiff, literal, word-for-word dictionary translations. Find the absolute best English equivalent for idioms, jokes, and slang.
+2. ADAPT TO CONTEXT: Read the character's facial expressions and body language. If they look angry, use aggressive/harsh English. If they are mocking, use sarcastic/witty English. 
+3. HONORIFICS & CULTURE: Seamlessly weave cultural nuances into natural English without making it sound alien. 
+4. COMIC BOOK FLAIR: Ensure the dialogue flows beautifully, using appropriate contractions (I'm, can't) to sound like real human speech.`;
+
+        const manhwaPrompt = `Analyze the Korean Manhwa image. Extract, translate, and map text to JSON.
+
+CRITICAL RULES:
+1. FOCUS ON KOREAN: Extract ONLY text containing Korean Hangul. Ignore pure English/symbols.
+2. NARRATIVE COHERENCE: Read the entire page visually. Ensure dialogue flows logically from panel to panel, reading top-to-bottom, left-to-right.
+3. DYNAMIC SFX: Translate drawn sound effects into high-energy English onomatopoeia (e.g., "SWOOSH", "BA-DUMP", "CRASH").
+4. FILTER TRASH: Strictly skip all site URLs, watermarks, logos, and translator credits.
+5. COMPLETE CROP: "box_2d" MUST completely encompass the ENTIRE block of text within the bubble, EXCLUDING speech bubble borders and tails.
+
+Return a JSON object containing a "translations" array exactly matching the required schema.`;
+
+        const mangaPrompt = `Analyze the Japanese Manga image. Extract, translate, and map text to JSON.
+
+CRITICAL RULES:
+1. FOCUS ON JAPANESE: Extract ONLY text containing Japanese characters. Ignore pure English/Korean. Watch carefully for vertical right-to-left text.
+2. NARRATIVE COHERENCE: Manga flows Top-Right to Bottom-Left. Ensure dialogue flows logically in that exact order.
+3. DYNAMIC SFX: Translate drawn sound effects into high-energy English onomatopoeia (e.g., "WHAM", "MENACING", "DOOM").
+4. FILTER TRASH: Strictly skip all site URLs, scanlation watermarks, and credits.
+5. COMPLETE CROP: "box_2d" MUST completely encompass the ENTIRE block of text within the bubble, EXCLUDING speech bubble borders and tails.
+
+Return a JSON object containing a "translations" array exactly matching the required schema.`;
+
+        // ==========================================
+        // UTILITY FUNCTIONS
+        // ==========================================
+
+        // Calls the backend proxy instead of Gemini directly
+        const callGeminiProxy = async function (geminiPayload, maxRetries = 5) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch("/api/translate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ payload: geminiPayload, model: "gemini-2.5-flash" }),
+                    });
+                    if (!response.ok) {
+                        if (response.status === 401 || response.status === 403) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (err) {
+                    if (err.message.includes('401') || err.message.includes('403')) throw err;
+                    if (i === maxRetries - 1) throw err;
+                    await new Promise(res => setTimeout(res, delays[i]));
+                }
+            }
+        };
+
+        const analyzeColors = function (context, x, y, w, h) {
+            try {
+                const offsets = [0.2, 0.5, 0.8];
+                let r = 0, g = 0, b = 0, validPoints = 0;
+                for (let fx of offsets) {
+                    for (let fy of offsets) {
+                        let pxX = Math.max(0, Math.min(context.canvas.width - 1, x + fx * w));
+                        let pxY = Math.max(0, Math.min(context.canvas.height - 1, y + fy * h));
+                        const px = context.getImageData(pxX, pxY, 1, 1).data;
+                        const luma = (px[0] * 299 + px[1] * 587 + px[2] * 114) / 1000;
+                        if (luma > 40) {
+                            r += px[0]; g += px[1]; b += px[2];
+                            validPoints++;
+                        }
+                    }
+                }
+
+                if (validPoints > 0) {
+                    r /= validPoints; g /= validPoints; b /= validPoints;
+                }
+
+                const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+                if (brightness < 80) return { bg: '#000000', text: '#ffffff' };
+                if (brightness < 220) {
+                    const hex = '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+                    return { bg: hex, text: brightness > 140 ? '#000000' : '#ffffff' };
+                }
+                return { bg: '#ffffff', text: '#000000' };
+            } catch (e) {
+                return { bg: '#ffffff', text: '#000000' };
+            }
+        };
+
+        const dragElement = function (elmnt) {
+            var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+
+            // Allow dragging from anywhere on the overlay, except text content and resize handles
+            elmnt.onmousedown = function (e) {
+                const target = e.target;
+                // Skip if clicking on editable text, resize handles, or control buttons
+                if (target.classList.contains('text-content') || target.isContentEditable) return;
+                if (target.classList.contains('resize-handle')) return;
+                dragMouseDown(e);
+            };
+
+            // Also keep the drag handle working
+            var handle = elmnt.querySelector('.drag-handle');
+            if (handle) {
+                handle.onmousedown = dragMouseDown;
+            }
+
+            function dragMouseDown(e) {
+                e.preventDefault();
+                pos3 = e.clientX; pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY;
+                pos3 = e.clientX; pos4 = e.clientY;
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        };
+
+        // ==========================================
+        // DECOUPLED BUBBLE COMPONENT GENERATOR
+        // ==========================================
+        const createTextBox = function (initialText, startX, startY, startW, startH, bgColor = "rgba(255, 255, 255, 0.95)", txtColor = "#000000", fontSizePx = 16, pageW, pageH) {
+            startX = Math.max(0, Math.min(startX, pageW - 20));
+            startY = Math.max(0, Math.min(startY, pageH - 20));
+            startW = Math.max(10, startW);
+            startH = Math.max(10, startH);
+
+            const box = document.createElement('div');
+            box.className = 'text-overlay';
+            box.style.left = startX + 'px';
+            box.style.top = startY + 'px';
+            box.style.width = startW + 'px';
+            box.style.height = startH + 'px';
+            box.style.backgroundColor = bgColor;
+
+            box.style.boxShadow = 'none';
+            box.style.borderRadius = '2px';
+
+            let currentFontSize = fontSizePx;
+
+            let textOutline = (txtColor === '#000000' || txtColor === 'rgba(0,0,0,1)')
+                ? `2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0 2px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff, 0 0 6px #fff`
+                : `2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 2px 0 #000, 0 -2px 0 #000, 2px 0 0 #000, -2px 0 0 #000, 0 0 6px #000`;
+
+            let canvasW = pageW || canvas.offsetWidth || canvas.width;
+            let canvasH = pageH || canvas.offsetHeight || canvas.height;
+            let centerX = startX + (startW / 2);
+            let centerY = startY + (startH / 2);
+            let maxDistX = Math.min(centerX, canvasW - centerX);
+            let maxDistY = Math.min(centerY, canvasH - centerY);
+
+            let maxSafeW = Math.max(startW, (maxDistX * 2) - 16);
+            let maxSafeH = Math.max(startH, (maxDistY * 2) - 16);
+
+            let limitH = Math.min(Math.max(150, startW * 1.5), maxSafeW);
+            let limitV = Math.min(Math.max(150, startH * 1.5), maxSafeH);
+
+            box.innerHTML = `
+                <div class="resize-handle resize-nw" data-type="nw"></div>
+                <div class="resize-handle resize-ne" data-type="ne"></div>
+                <div class="resize-handle resize-sw" data-type="sw"></div>
+                <div class="resize-handle resize-se" data-type="se"></div>
+                <div class="resize-handle resize-w" data-type="w"></div>
+                <div class="resize-handle resize-e" data-type="e"></div>
+                <div class="resize-handle resize-n" data-type="n"></div>
+                <div class="resize-handle resize-s" data-type="s"></div>
+
+                <div class="drag-handle">
+                    <div class="flex space-x-2 items-center">
+                        <span class="text-[14px] cursor-pointer hover:text-blue-400 font-btn-minus px-1" title="Smaller Font">A-</span>
+                        <span class="text-[14px] cursor-pointer hover:text-blue-400 font-btn-plus px-1" title="Larger Font">A+</span>
+                        <span class="text-[14px] cursor-pointer hover:text-emerald-400 dir-btn px-1 font-bold" title="Toggle Orientation (Vertical/Horizontal)">↕/↔</span>
+                    </div>
+                    <span class="delete-btn" title="Delete Box">✕</span>
+                </div>
+                
+                <div class="text-wrapper" style="--line-limit-h: ${limitH}px; --line-limit-v: ${limitV}px;">
+                    <div class="text-content" contenteditable="true" style="font-size: ${currentFontSize}px; color: ${txtColor}; text-shadow: ${textOutline};">${initialText}</div>
+                </div>
+            `;
+
+            const container = document.getElementById('editor-container');
+            container.appendChild(box);
+
+            // Setup Resizing Engine
+            const resizeHandles = box.querySelectorAll('.resize-handle');
+            const textContent = box.querySelector('.text-content');
+
+            let isResizingBox = false;
+            let startResizeX, startResizeY, startWidth, startHeight, startLeft, startTop, startFs, activeHandleType;
+
+            function updateLineLimits(newW, newH, newL, newT) {
+                let canvasW = canvas.offsetWidth || canvas.width;
+                let canvasH = canvas.offsetHeight || canvas.height;
+                let centerX = newL + (newW / 2);
+                let centerY = newT + (newH / 2);
+                let maxSafeW = Math.max(newW, (Math.min(centerX, canvasW - centerX) * 2) - 16);
+                let maxSafeH = Math.max(newH, (Math.min(centerY, canvasH - centerY) * 2) - 16);
+
+                box.querySelector('.text-wrapper').style.setProperty('--line-limit-h', Math.min(Math.max(150, newW * 1.5), maxSafeW) + 'px');
+                box.querySelector('.text-wrapper').style.setProperty('--line-limit-v', Math.min(Math.max(150, newH * 1.5), maxSafeH) + 'px');
+            }
+
+            resizeHandles.forEach(handle => {
+                handle.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    isResizingBox = true;
+                    activeHandleType = handle.dataset.type;
+                    box.classList.add('is-resizing');
+
+                    startResizeX = e.clientX; startResizeY = e.clientY;
+                    startWidth = box.offsetWidth; startHeight = box.offsetHeight;
+                    startLeft = box.offsetLeft; startTop = box.offsetTop;
+                    startFs = parseFloat(window.getComputedStyle(textContent).fontSize) || 16;
+
+                    box.style.width = startWidth + 'px';
+                    document.addEventListener('mousemove', handleResizeMove);
+                    document.addEventListener('mouseup', handleResizeUp);
+                });
+            });
+
+            function handleResizeMove(e) {
+                if (!isResizingBox) return;
+
+                let dx = e.clientX - startResizeX; let dy = e.clientY - startResizeY;
+
+                if (activeHandleType.length === 2) {
+                    let ratio = (activeHandleType.includes('e')) ?
+                        Math.max(0.2, (startWidth + dx) / startWidth) :
+                        Math.max(0.2, (startWidth - dx) / startWidth);
+
+                    let newWidth = startWidth * ratio;
+                    box.style.width = newWidth + 'px';
+
+                    box.querySelector('.text-wrapper').style.setProperty('--line-limit', Math.max(150, newWidth * 1.5) + 'px');
+
+                    currentFontSize = startFs * ratio;
+                    textContent.style.fontSize = currentFontSize + 'px';
+
+                    let actualDw = newWidth - startWidth;
+                    let newComputedHeight = box.offsetHeight;
+                    let actualDh = newComputedHeight - startHeight;
+
+                    let shiftX = activeHandleType.includes('e') ? 0 : -actualDw;
+                    let shiftY = activeHandleType.includes('s') ? 0 : -actualDh;
+
+                    let newLeft = startLeft + shiftX;
+                    let newTop = startTop + shiftY;
+                    box.style.left = newLeft + 'px';
+                    box.style.top = newTop + 'px';
+
+                    updateLineLimits(newWidth, box.offsetHeight, newLeft, newTop);
+
+                } else if (activeHandleType === 'w' || activeHandleType === 'e') {
+                    let dw = (activeHandleType === 'e') ? dx : -dx;
+                    let newWidth = Math.max(15, startWidth + dw);
+                    box.style.width = newWidth + 'px';
+
+                    let actualDw = newWidth - startWidth;
+                    let shiftX = (activeHandleType === 'e') ? 0 : -actualDw;
+
+                    let newLeft = startLeft + shiftX;
+                    box.style.left = newLeft + 'px';
+
+                    updateLineLimits(newWidth, startHeight, newLeft, startTop);
+                } else if (activeHandleType === 'n' || activeHandleType === 's') {
+                    let dh = (activeHandleType === 's') ? dy : -dy;
+                    let newHeight = Math.max(15, startHeight + dh);
+                    box.style.height = newHeight + 'px';
+
+                    let shiftY = (activeHandleType === 's') ? 0 : -(newHeight - startHeight);
+
+                    let newTop = startTop + shiftY;
+                    box.style.top = newTop + 'px';
+
+                    updateLineLimits(startWidth, newHeight, startLeft, newTop);
+                }
+            }
+
+            function handleResizeUp() {
+                if (isResizingBox) {
+                    isResizingBox = false;
+                    activeHandleType = null;
+                    box.classList.remove('is-resizing');
+                    document.removeEventListener('mousemove', handleResizeMove);
+                    document.removeEventListener('mouseup', handleResizeUp);
+                }
+            }
+
+            box.querySelector('.font-btn-plus').addEventListener('click', () => {
+                currentFontSize += 2;
+                textContent.style.fontSize = currentFontSize + 'px';
+                updateLineLimits(box.offsetWidth, box.offsetHeight, box.offsetLeft, box.offsetTop);
+            });
+            box.querySelector('.font-btn-minus').addEventListener('click', () => {
+                currentFontSize = Math.max(8, currentFontSize - 2);
+                textContent.style.fontSize = currentFontSize + 'px';
+                updateLineLimits(box.offsetWidth, box.offsetHeight, box.offsetLeft, box.offsetTop);
+            });
+            box.querySelector('.dir-btn').addEventListener('click', () => {
+                textContent.classList.toggle('is-vertical');
+            });
+            box.querySelector('.delete-btn').addEventListener('click', () => {
+                box.remove();
+            });
+
+            dragElement(box);
+            return box;
+        };
+
+        // ==========================================
+        // PAGE & MEMORY MANAGEMENT
+        // ==========================================
+        const saveCurrentPageEdits = function () {
+            if (!isDocumentLoaded) return;
+            const container = document.getElementById('editor-container');
+            const overlays = Array.from(container.querySelectorAll('.text-overlay'));
+            pageOverlays[pageNum] = overlays;
+            overlays.forEach(el => el.remove());
+        };
+
+        const restorePageEdits = function (num) {
+            const container = document.getElementById('editor-container');
+            if (pageOverlays[num]) {
+                pageOverlays[num].forEach(el => container.appendChild(el));
+            }
+        };
+
+        const renderPage = function (num) {
+            pageRendering = true;
+            if (isPdfMode) {
+                pdfDoc.getPage(num).then(function (page) {
+                    var viewport = page.getViewport({ scale: scale });
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    var renderContext = { canvasContext: ctx, viewport: viewport };
+                    page.render(renderContext).promise.then(() => finalizePageRender(num));
+                });
+            } else {
+                const imgSrc = zipImages[num - 1];
+                const img = new Image();
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    finalizePageRender(num);
+                };
+                img.src = imgSrc;
+            }
+        };
+
+        const finalizePageRender = function (num) {
+            pageRendering = false;
+            if (!isExporting) {
+                document.querySelectorAll('.text-overlay').forEach(el => el.remove());
+                restorePageEdits(num);
+            }
+            if (pageNumPending !== null) {
+                renderPage(pageNumPending);
+                pageNumPending = null;
+            }
+            if (!isExporting) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            document.getElementById('page_num').textContent = num;
+        };
+
+        const queueRenderPage = function (num) {
+            if (pageRendering) pageNumPending = num;
+            else renderPage(num);
+        };
+
+        const goToPrevPage = function () {
+            if (!isDocumentLoaded || pageNum <= 1) return;
+            saveCurrentPageEdits(); pageNum--; queueRenderPage(pageNum);
+        };
+
+        const goToNextPage = function () {
+            if (!isDocumentLoaded || pageNum >= totalPages) return;
+            saveCurrentPageEdits(); pageNum++; queueRenderPage(pageNum);
+        };
+
+        // ==========================================
+        // EVENT LISTENERS & UPLOAD HANDLING
+        // ==========================================
+        const btnManhwa = document.getElementById('mode-manhwa-btn');
+        const btnManga = document.getElementById('mode-manga-btn');
+
+        btnManhwa.addEventListener('click', () => {
+            isMangaMode = false;
+            btnManhwa.classList.add('bg-blue-600', 'text-white', 'shadow');
+            btnManhwa.classList.remove('text-slate-400');
+            btnManga.classList.remove('bg-blue-600', 'text-white', 'shadow');
+            btnManga.classList.add('text-slate-400');
+        });
+
+        btnManga.addEventListener('click', () => {
+            isMangaMode = true;
+            btnManga.classList.add('bg-blue-600', 'text-white', 'shadow');
+            btnManga.classList.remove('text-slate-400');
+            btnManhwa.classList.remove('bg-blue-600', 'text-white', 'shadow');
+            btnManhwa.classList.add('text-slate-400');
+        });
+
+        document.getElementById('prev-btn').addEventListener('click', goToPrevPage);
+        document.getElementById('next-btn').addEventListener('click', goToNextPage);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.target.isContentEditable || e.target.tagName === 'INPUT') return;
+            if (e.key === 'ArrowLeft') goToPrevPage();
+            if (e.key === 'ArrowRight') goToNextPage();
+        });
+
+        // Handle Transcript File Uploads
+        document.getElementById('transcript-upload').addEventListener('change', function (e) {
+            var file = e.target.files[0];
+            if (!file) {
+                uploadedTranscript = "";
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                uploadedTranscript = evt.target.result;
+                alert("Transcript loaded! The AI will now act as an intelligent typesetter and map your provided text to the speech bubbles.");
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('file-upload').addEventListener('change', async function (e) {
+            var file = e.target.files[0];
+            if (!file) return;
+
+            if (file.type === 'application/zip' || file.name.toLowerCase().endsWith('.zip') || file.type === 'application/x-zip-compressed') {
+                isPdfMode = false;
+                pdfDoc = null;
+                const zip = new JSZip();
+
+                try {
+                    const loadedZip = await zip.loadAsync(file);
+                    let imgFiles = [];
+
+                    loadedZip.forEach((relativePath, zipEntry) => {
+                        if (!zipEntry.dir && relativePath.match(/\.(jpeg|jpg|png|webp|gif)$/i)) {
+                            imgFiles.push(zipEntry);
+                        }
+                    });
+
+                    imgFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+                    if (imgFiles.length === 0) return alert("No image files (JPG, PNG, WEBP) found in the ZIP.");
+
+                    zipImages = [];
+                    for (let img of imgFiles) {
+                        const base64 = await img.async("base64");
+                        const ext = img.name.split('.').pop().toLowerCase();
+                        const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+                        zipImages.push(`data:${mime};base64,${base64}`);
+                    }
+
+                    totalPages = zipImages.length;
+                    document.getElementById('page_count').textContent = totalPages;
+                    pageNum = 1;
+                    pageOverlays = {};
+                    isDocumentLoaded = true;
+                    renderPage(pageNum);
+
+                } catch (err) { alert("Error extracting ZIP: " + err.message); }
+
+            } else if (file.type === 'application/pdf') {
+                isPdfMode = true;
+                zipImages = [];
+                var fileReader = new FileReader();
+                fileReader.onload = function () {
+                    var typedarray = new Uint8Array(this.result);
+                    pdfjsLib.getDocument(typedarray).promise.then(function (pdf) {
+                        pdfDoc = pdf;
+                        totalPages = pdfDoc.numPages;
+                        document.getElementById('page_count').textContent = totalPages;
+                        pageNum = 1;
+                        pageOverlays = {};
+                        isDocumentLoaded = true;
+                        renderPage(pageNum);
+                    }).catch(err => alert("Error loading PDF: " + err.message));
+                };
+                fileReader.readAsArrayBuffer(file);
+            } else { alert('Please upload a valid PDF or ZIP file.'); }
+        });
+
+        document.getElementById('add-text-btn').addEventListener('click', () => {
+            if (!isDocumentLoaded) return alert("Please upload a document first.");
+            const yOffset = Math.max(50, window.scrollY - 100);
+            createTextBox("Manual Text", 50, yOffset, 120, 60, "rgba(255, 255, 255, 0.95)", "#000000", 12, canvas.width, canvas.height);
+        });
+
+        // ------------------------------------------
+        // SHARED: Build Gemini payload
+        // ------------------------------------------
+        function buildTranslationPayload(canvasData, activePrompt) {
+            if (uploadedTranscript) {
+                activePrompt += `\n\n=== OFFICIAL SCRIPT/TRANSCRIPT ===\n${uploadedTranscript}\n\nCRITICAL INSTRUCTION: The user has provided the official translated script above. You MUST use these exact English lines. Your primary job is to act as an intelligent typesetter and map these provided lines to the correct physical speech bubbles in the image. Do not invent new translations if a line exists in the script.`;
+            }
+
+            const fullPrompt = `${localizerPersona}\n\n${activePrompt}`;
+
+            return {
+                contents: [{
+                    role: "user",
+                    parts: [
+                        { text: fullPrompt },
+                        { inlineData: { mimeType: "image/png", data: canvasData } }
+                    ]
+                }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            translations: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        source_text: { type: "STRING" },
+                                        text: { type: "STRING" },
+                                        box_2d: { type: "ARRAY", items: { type: "INTEGER" }, description: "[ymin, xmin, ymax, xmax] normalized to 1000" }
+                                    }, required: ["source_text", "text", "box_2d"]
+                                }
+                            }
+                        },
+                        required: ["translations"]
+                    }
+                }
+            };
+        }
+
+        // ------------------------------------------
+        // SHARED: Process translation results into overlays
+        // ------------------------------------------
+        function processTranslations(translations, canvasW, canvasH, bgCtx) {
+            const boxes = [];
+            translations.forEach((item) => {
+                if (!item.box_2d || item.box_2d.length !== 4) return;
+                const cleanText = item.text ? item.text.trim() : "";
+                const cleanSource = item.source_text ? item.source_text.trim() : "";
+
+                const koreanRegex = /[\u3131-\uD79D]/;
+                const japaneseRegex = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\uFAFF]/;
+
+                if (isMangaMode && !japaneseRegex.test(cleanSource)) return;
+                if (!isMangaMode && !koreanRegex.test(cleanSource)) return;
+
+                const lowerText = cleanText.toLowerCase();
+                const isWatermark = ['manhwa', 'raw.com', 'ero18x', 'toon', 'to be continued', 'watermark'].some(w => lowerText.includes(w));
+                if (isWatermark) return;
+
+                const [ymin, xmin, ymax, xmax] = item.box_2d;
+                if (xmin >= xmax || ymin >= ymax) return;
+
+                let rawW = ((xmax - xmin) / 1000) * canvasW;
+                let rawH = ((ymax - ymin) / 1000) * canvasH;
+                let rawX = (xmin / 1000) * canvasW;
+                let rawY = (ymin / 1000) * canvasH;
+
+                let padX = Math.max(16, rawW * 0.15);
+                let padY = 0;
+                let boxW = rawW + padX;
+                let boxH = rawH + padY;
+                let xPos = rawX - (padX / 2);
+                let yPos = rawY;
+
+                let colors = analyzeColors(bgCtx, xPos, yPos, boxW, boxH);
+                let finalBgColor = colors.bg;
+
+                if (finalBgColor === '#ffffff') finalBgColor = 'rgba(255, 255, 255, 0.95)';
+                else if (finalBgColor === '#000000') finalBgColor = 'rgba(0, 0, 0, 0.95)';
+                else if (finalBgColor.startsWith('#')) {
+                    let r = parseInt(finalBgColor.slice(1, 3), 16);
+                    let g = parseInt(finalBgColor.slice(3, 5), 16);
+                    let b = parseInt(finalBgColor.slice(5, 7), 16);
+                    finalBgColor = `rgba(${r}, ${g}, ${b}, 0.95)`;
+                }
+
+                if ((boxW * boxH) > (canvasW * canvasH * 0.30)) {
+                    finalBgColor = 'transparent';
+                }
+
+                let textArea = Math.max(boxW * boxH, 100);
+                let charCount = Math.max(1, cleanText.length);
+                let localFontSize = Math.sqrt(textArea / charCount) * 1.0;
+                localFontSize = Math.max(10, Math.min(localFontSize, boxH * 0.9, 25));
+
+                const box = createTextBox(cleanText, xPos, yPos, boxW, boxH, finalBgColor, colors.text, localFontSize, canvasW, canvasH);
+
+                if (isMangaMode && boxH > boxW * 1.5) {
+                    box.querySelector('.text-content').classList.add('is-vertical');
+                }
+                boxes.push({ box, text: cleanText });
+            });
+            return boxes;
+        }
+
+        // ------------------------------------------
+        // TRANSLATE CURRENT PAGE
+        // ------------------------------------------
+        document.getElementById('translate-page-btn').addEventListener('click', async () => {
+            if (!isDocumentLoaded) return alert("Please upload a document first.");
+            if (pageRendering) return alert("Please wait for the page to finish rendering.");
+
+            const btn = document.getElementById('translate-page-btn');
+            const spinner = btn.querySelector('.spinner');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            spinner.classList.remove('hidden');
+
+            try {
+                const canvasData = canvas.toDataURL('image/png').split(',')[1];
+                const canvasW = canvas.offsetWidth;
+                const canvasH = canvas.offsetHeight;
+
+                let activePrompt = isMangaMode ? mangaPrompt : manhwaPrompt;
+                const payload = buildTranslationPayload(canvasData, activePrompt);
+
+                const data = await callGeminiProxy(payload);
+
+                const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (textResult) {
+                    let rawText = textResult;
+                    if (rawText.startsWith('```json')) { rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim(); }
+                    else if (rawText.startsWith('```')) { rawText = rawText.replace(/```/g, '').trim(); }
+
+                    const parsedResponse = JSON.parse(rawText);
+                    const translations = parsedResponse.translations || [];
+
+                    if (translations.length === 0) {
+                        alert("No text detected on this specific page.");
+                    } else {
+                        document.querySelectorAll('.text-overlay').forEach(el => el.remove());
+                        pageOverlays[pageNum] = [];
+
+                        const results = processTranslations(translations, canvasW, canvasH, ctx);
+                        results.forEach(r => pageOverlays[pageNum].push(r.box));
+                    }
+                }
+            } catch (error) {
+                console.error("Translation error:", error);
+                if (error.message.includes("401") || error.message.includes("403")) {
+                    alert("Error: API key is invalid or unauthorized. Check your GEMINI_API_KEY.");
+                } else {
+                    alert("Translation failed. Please try again.");
+                }
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                spinner.classList.add('hidden');
+            }
+        });
+
+        // ------------------------------------------
+        // TRANSLATE ALL PAGES IN BACKGROUND
+        // ------------------------------------------
+        document.getElementById('translate-all-btn').addEventListener('click', async () => {
+            if (!isDocumentLoaded) return alert("Please upload a document first.");
+            if (pageRendering) return alert("Please wait for the page to finish rendering.");
+
+            const btn = document.getElementById('translate-all-btn');
+            const spinner = btn.querySelector('.spinner');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            spinner.classList.remove('hidden');
+
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-slate-900/95 z-[100] flex flex-col justify-center items-center text-white';
+            overlay.innerHTML = `
+                <div class="large-spinner mb-6"></div>
+                <h2 class="text-xl font-bold mb-2 text-purple-400">Processing Full Chapter...</h2>
+                <p id="translate-loading-text" class="text-slate-300 text-sm">Translating page 1 of ${totalPages}</p>
+                <p class="text-[10px] text-slate-500 mt-4">(This may take a while depending on chapter size.)</p>
+            `;
+            document.body.appendChild(overlay);
+            const loadingText = overlay.querySelector('#translate-loading-text');
+
+            saveCurrentPageEdits();
+
+            let chapterContextTranscript = "";
+
+            try {
+                for (let i = 1; i <= totalPages; i++) {
+                    loadingText.innerText = `Translating page ${i} of ${totalPages}...`;
+
+                    let canvasData = "";
+                    let canvasW = 0, canvasH = 0;
+                    let bgCtx = null;
+
+                    if (isPdfMode) {
+                        const tempCanvas = document.createElement('canvas');
+                        bgCtx = tempCanvas.getContext('2d');
+                        const page = await pdfDoc.getPage(i);
+                        const viewport = page.getViewport({ scale: scale });
+                        tempCanvas.width = viewport.width;
+                        tempCanvas.height = viewport.height;
+                        await page.render({ canvasContext: bgCtx, viewport: viewport }).promise;
+                        canvasData = tempCanvas.toDataURL('image/png').split(',')[1];
+                        canvasW = viewport.width;
+                        canvasH = viewport.height;
+                    } else {
+                        const tempCanvas = document.createElement('canvas');
+                        bgCtx = tempCanvas.getContext('2d');
+                        const img = new Image();
+                        img.src = zipImages[i - 1];
+                        await new Promise(r => img.onload = r);
+                        tempCanvas.width = img.width;
+                        tempCanvas.height = img.height;
+                        bgCtx.drawImage(img, 0, 0);
+                        canvasData = tempCanvas.toDataURL('image/png').split(',')[1];
+                        canvasW = img.width;
+                        canvasH = img.height;
+                    }
+
+                    let currentPrompt = isMangaMode ? mangaPrompt : manhwaPrompt;
+
+                    if (uploadedTranscript) {
+                        currentPrompt += `\n\n=== OFFICIAL SCRIPT/TRANSCRIPT ===\n${uploadedTranscript}\n\nCRITICAL INSTRUCTION: The user has provided the official translated script above. You MUST use these exact English lines. Your primary job is to act as an intelligent typesetter and map these provided lines to the correct physical speech bubbles in the image. Do not invent new translations if a line exists in the script.`;
+                    } else if (chapterContextTranscript !== "") {
+                        currentPrompt += `\n\n=== MEMORY: PREVIOUS PAGES DIALOGUE ===\n${chapterContextTranscript}\n\nCRITICAL INSTRUCTION: Read the memory transcript above. Ensure your translation for this current page flows flawlessly as a direct continuation of the story. Keep character tones, names, and running jokes consistent!`;
+                    }
+
+                    const fullPrompt = `${localizerPersona}\n\n${currentPrompt}`;
+
+                    const payload = {
+                        contents: [{
+                            role: "user",
+                            parts: [
+                                { text: fullPrompt },
+                                { inlineData: { mimeType: "image/png", data: canvasData } }
+                            ]
+                        }],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    translations: {
+                                        type: "ARRAY",
+                                        items: {
+                                            type: "OBJECT",
+                                            properties: {
+                                                source_text: { type: "STRING" },
+                                                text: { type: "STRING" },
+                                                box_2d: { type: "ARRAY", items: { type: "INTEGER" }, description: "[ymin, xmin, ymax, xmax] normalized to 1000" }
+                                            },
+                                            required: ["source_text", "text", "box_2d"]
+                                        }
+                                    }
+                                },
+                                required: ["translations"]
+                            }
+                        }
+                    };
+
+                    const data = await callGeminiProxy(payload);
+
+                    const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (textResult) {
+                        let rawText = textResult;
+                        if (rawText.startsWith('```json')) { rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim(); }
+                        else if (rawText.startsWith('```')) { rawText = rawText.replace(/```/g, '').trim(); }
+
+                        const parsedResponse = JSON.parse(rawText);
+                        const translations = parsedResponse.translations || [];
+                        pageOverlays[i] = [];
+
+                        if (translations.length > 0) {
+                            let pageDialogue = [];
+
+                            const results = processTranslations(translations, canvasW, canvasH, bgCtx);
+                            results.forEach(r => {
+                                r.box.remove();
+                                pageOverlays[i].push(r.box);
+                                if (r.text) pageDialogue.push(r.text);
+                            });
+
+                            if (pageDialogue.length > 0) {
+                                let memoryLines = chapterContextTranscript.split('\n').filter(l => l.trim() !== '');
+                                if (memoryLines.length > 4) memoryLines = memoryLines.slice(-4);
+                                chapterContextTranscript = memoryLines.join('\n') + `\n[Page ${i}]: ${pageDialogue.join(' | ')}`;
+                            }
+                        }
+                    }
+
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+
+            } catch (error) {
+                console.error("Translation interrupted:", error);
+                if (error.message.includes("401") || error.message.includes("403")) {
+                    alert("Error: API key is invalid or unauthorized. Check your GEMINI_API_KEY.");
+                } else {
+                    alert("Translation process encountered an issue. Partial results have been saved.");
+                }
+            } finally {
+                overlay.remove();
+                document.querySelectorAll('.text-overlay').forEach(el => el.remove());
+                restorePageEdits(pageNum);
+
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                spinner.classList.add('hidden');
+
+                alert("Full chapter translation complete! You can now browse through the pages to fine-tune placements.");
+            }
+        });
+
+        // ------------------------------------------
+        // EXPORT LOGIC
+        // ------------------------------------------
+        document.getElementById('export-btn').addEventListener('click', async () => {
+            if (!isDocumentLoaded) return alert("Please upload a document first.");
+
+            saveCurrentPageEdits();
+            const originalPageNum = pageNum;
+            isExporting = true;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-slate-900/95 z-[100] flex flex-col justify-center items-center text-white';
+            overlay.innerHTML = `
+                <div class="large-spinner mb-6"></div>
+                <h2 class="text-xl font-bold mb-2 text-blue-400">Exporting Full Chapter...</h2>
+                <p id="export-loading-text" class="text-slate-300 text-sm">Rendering page 1 of ${totalPages}</p>
+            `;
+            document.body.appendChild(overlay);
+            const loadingText = overlay.querySelector('#export-loading-text');
+
+            const container = document.getElementById('editor-container');
+            container.classList.add('exporting');
+
+            const { jsPDF } = window.jspdf;
+            let pdf = null;
+
+            try {
+                for (let i = 1; i <= totalPages; i++) {
+                    loadingText.innerText = `Saving page ${i} of ${totalPages}...`;
+
+                    if (isPdfMode) {
+                        await new Promise(resolve => {
+                            pdfDoc.getPage(i).then(page => {
+                                var viewport = page.getViewport({ scale: scale });
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+                                var renderContext = { canvasContext: ctx, viewport: viewport };
+                                page.render(renderContext).promise.then(() => {
+                                    document.querySelectorAll('.text-overlay').forEach(el => el.remove());
+                                    restorePageEdits(i);
+                                    resolve();
+                                });
+                            });
+                        });
+                    } else {
+                        await new Promise(resolve => {
+                            const img = new Image();
+                            img.onload = () => {
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                ctx.drawImage(img, 0, 0);
+                                document.querySelectorAll('.text-overlay').forEach(el => el.remove());
+                                restorePageEdits(i);
+                                resolve();
+                            };
+                            img.src = zipImages[i - 1];
+                        });
+                    }
+
+                    // Give the browser time to paint overlays before capture
+                    await new Promise(r => setTimeout(r, 400));
+
+                    const exportScale = 3;
+                    const renderedCanvas = await html2canvas(container, { scale: exportScale, useCORS: true, backgroundColor: null });
+                    const imgData = renderedCanvas.toDataURL('image/jpeg', 0.75);
+
+                    const finalW = renderedCanvas.width / exportScale;
+                    const finalH = renderedCanvas.height / exportScale;
+
+                    if (i === 1) {
+                        pdf = new jsPDF({
+                            orientation: finalW > finalH ? 'l' : 'p',
+                            unit: 'px',
+                            format: [finalW, finalH]
+                        });
+                    } else {
+                        pdf.addPage([finalW, finalH], finalW > finalH ? 'l' : 'p');
+                    }
+
+                    pdf.addImage(imgData, 'JPEG', 0, 0, finalW, finalH, undefined, 'FAST');
+                }
+
+                loadingText.innerText = "Downloading PDF...";
+
+                // Use jsPDF built-in save for proper filename
+                await new Promise(r => setTimeout(r, 200));
+
+                // Send PDF to server via a classic HTML Form POST to force a native browser download
+                // This completely bypasses Blob URLs and Fetch restrictions in managed browsers
+                const base64Pdf = pdf.output('datauristring').split(',')[1];
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/api/download-pdf-direct';
+                form.style.display = 'none';
+
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'pdfData';
+                input.value = base64Pdf;
+
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+
+                // Cleanup form after submission
+                setTimeout(() => form.remove(), 1000);
+
+            } catch (e) {
+                console.error("Export error:", e);
+                alert("Export failed: " + e.message);
+            } finally {
+                isExporting = false;
+                container.classList.remove('exporting');
+                overlay.remove();
+
+                pageNum = originalPageNum;
+                document.querySelectorAll('.text-overlay').forEach(el => el.remove());
+                queueRenderPage(pageNum);
+            }
+        });
+
+        document.getElementById('export-img-btn').addEventListener('click', () => {
+            if (!isDocumentLoaded) return alert("Please upload a document first.");
+            const container = document.getElementById('editor-container');
+            container.classList.add('exporting');
+
+            const exportScale = 3;
+            html2canvas(container, { scale: exportScale, useCORS: true, backgroundColor: null }).then(canvas => {
+                container.classList.remove('exporting');
+                const link = document.createElement('a');
+                link.download = `Translated_Chapter_Page_${pageNum}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        });
+    </script>
+</body>
+
+</html>
