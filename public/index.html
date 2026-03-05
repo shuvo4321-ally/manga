@@ -442,10 +442,13 @@ Return a JSON object containing a "translations" array exactly matching the requ
                         body: JSON.stringify({ payload: geminiPayload, model: "gemini-2.5-flash" }),
                     });
                     if (!response.ok) {
+                        const data = await response.json().catch(() => ({ message: 'Could not parse error response' }));
+                        console.error(`✗ Gemini API Error (${response.status}):`, JSON.stringify(data));
+                        // The original code had a server-side return here, adapting for client-side
                         if (response.status === 401 || response.status === 403) {
-                            throw new Error(`HTTP ${response.status}`);
+                            throw new Error(`HTTP ${response.status}: ${data.message || JSON.stringify(data)}`);
                         }
-                        throw new Error(`HTTP ${response.status}`);
+                        throw new Error(`HTTP ${response.status}: ${data.message || JSON.stringify(data)}`);
                     }
                     return await response.json();
                 } catch (err) {
@@ -1079,10 +1082,13 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 }
             } catch (error) {
                 console.error("Translation error:", error);
-                if (error.message.includes("401") || error.message.includes("403")) {
+                const technicalDetail = error.message || "Unknown error";
+                if (technicalDetail.includes("401") || technicalDetail.includes("403")) {
                     alert("Error: API key is invalid or unauthorized. Check your GEMINI_API_KEY.");
+                } else if (technicalDetail.includes("429")) {
+                    alert("Rate limited! Please wait a moment or check your API quotas.");
                 } else {
-                    alert("Translation failed. Please try again.");
+                    alert(`Translation failed.\n\nTECHNICAL ERROR: ${technicalDetail}\n\nPlease check the console for more details.`);
                 }
             } finally {
                 btn.disabled = false;

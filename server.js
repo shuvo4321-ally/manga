@@ -75,6 +75,7 @@ app.post("/api/translate", async (req, res) => {
       }
 
       if (!response.ok) {
+        console.error(`✗ Gemini API Error (${response.status}):`, JSON.stringify(data));
         return res.status(response.status).json(data);
       }
 
