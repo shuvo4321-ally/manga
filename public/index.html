@@ -299,6 +299,13 @@
                     title="Optional: Upload Script/Transcript (TXT, JSON, MD)">
 
                 <!-- Language Toggle -->
+                <div class="flex bg-slate-800 rounded p-0.5 border border-slate-700">
+                    <button id="mode-manhwa-btn"
+                        class="px-2 py-1 rounded text-[10px] font-bold bg-blue-600 text-white shadow transition">Manhwa</button>
+                    <button id="mode-manga-btn"
+                        class="px-2 py-1 rounded text-[10px] font-bold text-slate-400 hover:text-slate-200 transition">Manga</button>
+                </div>
+
                 <div class="h-4 w-px bg-slate-600 mx-1 self-center"></div>
                 <button id="flat-mode-btn"
                     class="px-2 py-1 rounded text-[10px] font-bold bg-slate-700 text-slate-300 hover:bg-orange-600 hover:text-white transition"
@@ -1261,7 +1268,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
                                 restorePageEdits(i);
                                 resolve();
                             };
-                            img.src = zipImages[i - 1];
+                            img.src = zipImages[i - 1].url;
                         });
                     }
 
