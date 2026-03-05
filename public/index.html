@@ -39,7 +39,7 @@
             min-width: 10px;
             min-height: 10px;
             transform-origin: center center;
-            border-radius: 8px;
+            border-radius: 0px;
             box-sizing: border-box;
             cursor: move;
         }
@@ -523,7 +523,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
         // ==========================================
         // DECOUPLED BUBBLE COMPONENT GENERATOR
         // ==========================================
-        const createTextBox = function (initialText, startX, startY, startW, startH, bgColor = "rgba(255, 255, 255, 0.95)", txtColor = "#000000", fontSizePx = 16, pageW, pageH) {
+        const createTextBox = function (initialText, startX, startY, startW, startH, bgColor = "#ffffff", txtColor = "#000000", fontSizePx = 16, pageW, pageH) {
             startX = Math.max(0, Math.min(startX, pageW - 20));
             startY = Math.max(0, Math.min(startY, pageH - 20));
             startW = Math.max(10, startW);
@@ -538,7 +538,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
             box.style.backgroundColor = bgColor;
 
             box.style.boxShadow = 'none';
-            box.style.borderRadius = '2px';
+            box.style.borderRadius = '0px';
 
             let currentFontSize = fontSizePx;
 
@@ -893,7 +893,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
         document.getElementById('add-text-btn').addEventListener('click', () => {
             if (!isDocumentLoaded) return alert("Please upload a document first.");
             const yOffset = Math.max(50, window.scrollY - 100);
-            createTextBox("Manual Text", 50, yOffset, 120, 60, "rgba(255, 255, 255, 0.95)", "#000000", 12, canvas.width, canvas.height);
+            createTextBox("Manual Text", 50, yOffset, 120, 60, "#ffffff", "#000000", 12, canvas.width, canvas.height);
         });
 
         // ------------------------------------------
@@ -976,9 +976,12 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 let finalBgColor = colors.bg;
                 let finalTextColor = colors.text;
 
+                // Removed transparency logic for large boxes as requested to keep it "Flat"
+                /* 
                 if ((boxW * boxH) > (canvasW * canvasH * 0.30)) {
                     finalBgColor = 'transparent';
                 }
+                */
 
                 let textArea = Math.max(boxW * boxH, 100);
                 let charCount = Math.max(1, cleanText.length);
