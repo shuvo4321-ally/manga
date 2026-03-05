@@ -299,63 +299,57 @@
                     title="Optional: Upload Script/Transcript (TXT, JSON, MD)">
 
                 <!-- Language Toggle -->
-                <div class="flex bg-slate-800 rounded p-0.5 border border-slate-600 shadow-inner">
-                    <button id="mode-manhwa-btn"
-                        class="px-2 py-1 rounded text-xs font-bold bg-blue-600 text-white shadow">🇰🇷 Manhwa</button>
-                    <button id="mode-manga-btn"
-                        class="px-2 py-1 rounded text-xs font-bold text-slate-400 hover:text-white transition">🇯🇵
-                        Manga</button>
-                </div>
-
+                <div class="h-4 w-px bg-slate-600 mx-1 self-center"></div>
                 <button id="flat-mode-btn"
-                    class="bg-slate-800 text-slate-400 px-2 py-1 rounded text-xs font-bold border border-slate-600 hover:text-white transition"
+                    class="px-2 py-1 rounded text-[10px] font-bold bg-slate-700 text-slate-300 hover:bg-orange-600 hover:text-white transition"
                     title="Force all boxes to have a flat white background">
                     Flat BG: OFF
                 </button>
-
-                <div class="h-5 w-px bg-slate-700 mx-1"></div>
-
-                <button id="translate-page-btn"
-                    class="bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-blue-500 transition shadow flex items-center"
-                    title="Translate ONLY the page you are currently viewing">
-                    <div class="spinner mr-1 hidden"></div>
-                    Lens This Page
-                </button>
-                <button id="translate-all-btn"
-                    class="bg-purple-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-purple-500 transition shadow flex items-center"
-                    title="Scans and translates every page in the chapter">
-                    <div class="spinner mr-1 hidden"></div>
-                    Lens Full Chapter
-                </button>
-
-                <div class="h-5 w-px bg-slate-700 mx-1"></div>
-
-                <button id="add-text-btn"
-                    class="bg-slate-700 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-slate-600 transition shadow">+
-                    Add Box</button>
-                <button id="export-img-btn"
-                    class="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-emerald-500 transition shadow">Save
-                    PNG</button>
-                <button id="export-btn"
-                    class="bg-indigo-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-indigo-500 transition shadow border border-indigo-400">Save
-                    PDF</button>
             </div>
-        </header>
 
-        <!-- Page Navigation Toolbar -->
-        <div
-            class="bg-slate-800 p-1.5 flex flex-col sm:flex-row justify-center space-y-1 sm:space-y-0 sm:space-x-4 items-center text-xs shadow-inner">
-            <div class="flex items-center space-x-2">
-                <button id="prev-btn"
-                    class="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition font-medium">←
-                    Prev</button>
-                <span class="font-medium text-slate-300 mx-2">Page: <span id="page_num"
-                        class="text-blue-400 font-bold">0</span> / <span id="page_count">0</span></span>
-                <button id="next-btn"
-                    class="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition font-medium">Next
-                    →</button>
-            </div>
+            <div class="h-5 w-px bg-slate-700 mx-1"></div>
+
+            <button id="translate-page-btn"
+                class="bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-blue-500 transition shadow flex items-center"
+                title="Translate ONLY the page you are currently viewing">
+                <div class="spinner mr-1 hidden"></div>
+                Lens This Page
+            </button>
+            <button id="translate-all-btn"
+                class="bg-purple-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-purple-500 transition shadow flex items-center"
+                title="Scans and translates every page in the chapter">
+                <div class="spinner mr-1 hidden"></div>
+                Lens Full Chapter
+            </button>
+
+            <div class="h-5 w-px bg-slate-700 mx-1"></div>
+
+            <button id="add-text-btn"
+                class="bg-slate-700 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-slate-600 transition shadow">+
+                Add Box</button>
+            <button id="export-img-btn"
+                class="bg-emerald-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-emerald-500 transition shadow">Save
+                PNG</button>
+            <button id="export-btn"
+                class="bg-indigo-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-indigo-500 transition shadow border border-indigo-400">Save
+                PDF</button>
+    </div>
+    </header>
+
+    <!-- Page Navigation Toolbar -->
+    <div
+        class="bg-slate-800 p-1.5 flex flex-col sm:flex-row justify-center space-y-1 sm:space-y-0 sm:space-x-4 items-center text-xs shadow-inner">
+        <div class="flex items-center space-x-2">
+            <button id="prev-btn"
+                class="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition font-medium">←
+                Prev</button>
+            <span class="font-medium text-slate-300 mx-2">Page: <span id="page_num"
+                    class="text-blue-400 font-bold">0</span> / <span id="page_count">0</span></span>
+            <button id="next-btn"
+                class="px-3 py-1 bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition font-medium">Next
+                →</button>
         </div>
+    </div>
     </div>
 
     <!-- Main Workspace -->
@@ -750,7 +744,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
                     page.render(renderContext).promise.then(() => finalizePageRender(num));
                 });
             } else {
-                const imgSrc = zipImages[num - 1];
+                const imgSrc = zipImages[num - 1].url;
                 const img = new Image();
                 img.onload = () => {
                     canvas.width = img.width;
@@ -805,12 +799,12 @@ Return a JSON object containing a "translations" array exactly matching the requ
             isForceWhiteMode = !isForceWhiteMode;
             if (isForceWhiteMode) {
                 btnFlat.innerText = "Flat BG: ON";
-                btnFlat.classList.add('bg-emerald-600', 'text-white', 'border-emerald-500');
-                btnFlat.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600');
+                btnFlat.classList.add('bg-orange-600', 'text-white');
+                btnFlat.classList.remove('bg-slate-700', 'text-slate-300');
             } else {
                 btnFlat.innerText = "Flat BG: OFF";
-                btnFlat.classList.remove('bg-emerald-600', 'text-white', 'border-emerald-500');
-                btnFlat.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600');
+                btnFlat.classList.remove('bg-orange-600', 'text-white');
+                btnFlat.classList.add('bg-slate-700', 'text-slate-300');
             }
         });
 
@@ -882,7 +876,10 @@ Return a JSON object containing a "translations" array exactly matching the requ
                         const base64 = await img.async("base64");
                         const ext = img.name.split('.').pop().toLowerCase();
                         const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
-                        zipImages.push(`data:${mime};base64,${base64}`);
+                        zipImages.push({
+                            url: `data:${mime};base64,${base64}`,
+                            name: img.name
+                        });
                     }
 
                     totalPages = zipImages.length;
@@ -923,9 +920,9 @@ Return a JSON object containing a "translations" array exactly matching the requ
         // ------------------------------------------
         // SHARED: Build Gemini payload
         // ------------------------------------------
-        function buildTranslationPayload(canvasData, activePrompt) {
+        function buildTranslationPayload(canvasData, activePrompt, currentFileName = "") {
             if (uploadedTranscript) {
-                activePrompt += `\n\n=== OFFICIAL SCRIPT/TRANSCRIPT ===\n${uploadedTranscript}\n\nCRITICAL INSTRUCTION: The user has provided the official translated script above. You MUST use these exact English lines. Your primary job is to act as an intelligent typesetter and map these provided lines to the correct physical speech bubbles in the image. Do not invent new translations if a line exists in the script.`;
+                activePrompt += `\n\n=== OFFICIAL SCRIPT/TRANSCRIPT ===\n${uploadedTranscript}\n\n=== TYPESETTING INSTRUCTIONS ===\n1. YOUR ROLE: You are an intelligent typesetter for the file: "${currentFileName}".\n2. SOURCE ALIGNMENT: Locate the section marked "--- FILE: ${currentFileName} ---" in the transcript above.\n3. WORD-FOR-WORD MAPPING: You MUST use the exact English text found under the "ENGLISH TRANSLATION:" heading for this file. \n4. DO NOT TRANSLATE: Do not change, improve, or simplify any words. Follow the transcript word-for-word.\n5. BUBBLE MAPPING: Map the lines in the order they appear to the corresponding visual elements in the image.\n`;
             }
 
             const fullPrompt = `${localizerPersona}\n\n${activePrompt}`;
@@ -1049,7 +1046,8 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 const canvasH = canvas.offsetHeight;
 
                 let activePrompt = isMangaMode ? mangaPrompt : manhwaPrompt;
-                const payload = buildTranslationPayload(canvasData, activePrompt);
+                const currentFileName = isPdfMode ? `Page ${pageNum}` : (zipImages[pageNum - 1].name || `Page ${pageNum}`);
+                const payload = buildTranslationPayload(canvasData, activePrompt, currentFileName);
 
                 const data = await callGeminiProxy(payload);
 
@@ -1138,7 +1136,8 @@ Return a JSON object containing a "translations" array exactly matching the requ
                         const tempCanvas = document.createElement('canvas');
                         bgCtx = tempCanvas.getContext('2d');
                         const img = new Image();
-                        img.src = zipImages[i - 1];
+                        img.src = zipImages[i - 1].url;
+                        const currentFileName = zipImages[i - 1].name;
                         await new Promise(r => img.onload = r);
                         tempCanvas.width = img.width;
                         tempCanvas.height = img.height;
@@ -1148,46 +1147,11 @@ Return a JSON object containing a "translations" array exactly matching the requ
                         canvasH = img.height;
                     }
 
-                    let currentPrompt = isMangaMode ? mangaPrompt : manhwaPrompt;
-
-                    if (uploadedTranscript) {
-                        currentPrompt += `\n\n=== OFFICIAL SCRIPT/TRANSCRIPT ===\n${uploadedTranscript}\n\nCRITICAL INSTRUCTION: The user has provided the official translated script above. You MUST use these exact English lines. Your primary job is to act as an intelligent typesetter and map these provided lines to the correct physical speech bubbles in the image. Do not invent new translations if a line exists in the script.`;
-                    } else if (chapterContextTranscript !== "") {
-                        currentPrompt += `\n\n=== MEMORY: PREVIOUS PAGES DIALOGUE ===\n${chapterContextTranscript}\n\nCRITICAL INSTRUCTION: Read the memory transcript above. Ensure your translation for this current page flows flawlessly as a direct continuation of the story. Keep character tones, names, and running jokes consistent!`;
+                    let activePrompt = isMangaMode ? mangaPrompt : manhwaPrompt;
+                    if (!uploadedTranscript && chapterContextTranscript !== "") {
+                        activePrompt += `\n\n=== MEMORY: PREVIOUS PAGES DIALOGUE ===\n${chapterContextTranscript}\n\nCRITICAL INSTRUCTION: Read the memory transcript above. Ensure your translation for this current page flows flawlessly as a direct continuation of the story. Keep character tones, names, and running jokes consistent!`;
                     }
-
-                    const fullPrompt = `${localizerPersona}\n\n${currentPrompt}`;
-
-                    const payload = {
-                        contents: [{
-                            role: "user",
-                            parts: [
-                                { text: fullPrompt },
-                                { inlineData: { mimeType: "image/jpeg", data: canvasData } }
-                            ]
-                        }],
-                        generationConfig: {
-                            responseMimeType: "application/json",
-                            responseSchema: {
-                                type: "OBJECT",
-                                properties: {
-                                    translations: {
-                                        type: "ARRAY",
-                                        items: {
-                                            type: "OBJECT",
-                                            properties: {
-                                                source_text: { type: "STRING" },
-                                                text: { type: "STRING" },
-                                                box_2d: { type: "ARRAY", items: { type: "INTEGER" }, description: "[ymin, xmin, ymax, xmax] normalized to 1000" }
-                                            },
-                                            required: ["source_text", "text", "box_2d"]
-                                        }
-                                    }
-                                },
-                                required: ["translations"]
-                            }
-                        }
-                    };
+                    const payload = buildTranslationPayload(canvasData, activePrompt, currentFileName);
 
                     const data = await callGeminiProxy(payload);
 
