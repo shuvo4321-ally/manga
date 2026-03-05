@@ -109,7 +109,11 @@ app.post("/api/download-pdf-direct", (req, res) => {
 });
 
 // Show key status on startup
-app.listen(PORT, () => {
-  console.log(`✨ Comic Translator running at http://localhost:${PORT}`);
-  console.log(`🔑 Loaded ${apiKeys.length} API key(s). Active: Key #${currentKeyIndex + 1}`);
-});
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`✨ Comic Translator running at http://localhost:${PORT}`);
+    console.log(`🔑 Loaded ${apiKeys.length} API key(s). Active: Key #${currentKeyIndex + 1}`);
+  });
+}
+
+export default app;
