@@ -1300,29 +1300,11 @@ Return a JSON object containing a "translations" array exactly matching the requ
 
                 loadingText.innerText = "Downloading PDF...";
 
-                // Use jsPDF built-in save for proper filename
+                // Allow UI to update
                 await new Promise(r => setTimeout(r, 200));
 
-                // Send PDF to server via a classic HTML Form POST to force a native browser download
-                // This completely bypasses Blob URLs and Fetch restrictions in managed browsers
-                const base64Pdf = pdf.output('datauristring').split(',')[1];
-
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/api/download-pdf-direct';
-                form.style.display = 'none';
-
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'pdfData';
-                input.value = base64Pdf;
-
-                form.appendChild(input);
-                document.body.appendChild(form);
-                form.submit();
-
-                // Cleanup form after submission
-                setTimeout(() => form.remove(), 1000);
+                // Save directly on the client to avoid Vercel 4.5MB serverless payload limits
+                pdf.save("Translated_Chapter.pdf");
 
             } catch (e) {
                 console.error("Export error:", e);
