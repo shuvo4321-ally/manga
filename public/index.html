@@ -1061,10 +1061,10 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (textResult) {
                     let rawText = textResult;
-                    if (rawText.startsWith('```json')) { rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim(); }
-                    else if (rawText.startsWith('```')) { rawText = rawText.replace(/```/g, '').trim(); }
+                    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) throw new Error("Invalid AI Response: No JSON found.");
 
-                    const parsedResponse = JSON.parse(rawText);
+                    const parsedResponse = JSON.parse(jsonMatch[0]);
                     const translations = parsedResponse.translations || [];
 
                     if (translations.length === 0) {
@@ -1165,10 +1165,10 @@ Return a JSON object containing a "translations" array exactly matching the requ
                     const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (textResult) {
                         let rawText = textResult;
-                        if (rawText.startsWith('```json')) { rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim(); }
-                        else if (rawText.startsWith('```')) { rawText = rawText.replace(/```/g, '').trim(); }
+                        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                        if (!jsonMatch) throw new Error("Page Extraction Error: JSON structure missing.");
 
-                        const parsedResponse = JSON.parse(rawText);
+                        const parsedResponse = JSON.parse(jsonMatch[0]);
                         const translations = parsedResponse.translations || [];
                         pageOverlays[i] = [];
 
@@ -1198,7 +1198,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 if (error.message.includes("401") || error.message.includes("403")) {
                     alert("Error: API key is invalid or unauthorized. Check your GEMINI_API_KEY.");
                 } else {
-                    alert("Translation process encountered an issue. Partial results have been saved.");
+                    alert(`Translation process encountered an issue. Partial results have been saved.\n\nERROR DETAIL: ${error.message}`);
                 }
             } finally {
                 overlay.remove();
