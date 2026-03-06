@@ -1146,6 +1146,12 @@ Return a JSON object containing a "translations" array exactly matching the requ
                     if (e.key === 'ArrowUp') currentHoveredBox.style.top = (currentTop - step) + 'px';
                 }
 
+                // Open Color/Shape Picker with W or C
+                if (e.key.toLowerCase() === 'w' || e.key.toLowerCase() === 'c') {
+                    const colorPopover = currentHoveredBox.querySelector('.color-popover');
+                    if (colorPopover) colorPopover.classList.toggle('is-open');
+                }
+
             } else {
                 // Page Navigation (Only if no box is hovered)
                 if (e.key === 'ArrowLeft') goToPrevPage();
