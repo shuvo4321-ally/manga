@@ -608,6 +608,67 @@ Return a JSON object containing a "translations" array exactly matching the requ
             }
         };
 
+        const detectBubbleShape = function (context, x, y, w, h) {
+            try {
+                // Sample the center to find the "base color" of the bubble
+                const cX = Math.round(x + w / 2);
+                const cY = Math.round(y + h / 2);
+                if (cX < 0 || cY < 0 || cX >= context.canvas.width || cY >= context.canvas.height) return 0;
+
+                const centerPx = context.getImageData(cX, cY, 1, 1).data;
+                const centerLuma = (centerPx[0] * 299 + centerPx[1] * 587 + centerPx[2] * 114) / 1000;
+                const isCenterLight = centerLuma > 128;
+
+                // Check corners (if corners have the SAME color as center, it's a rectangle)
+                const corners = [
+                    { px: x, py: y },
+                    { px: x + w - 1, py: y },
+                    { px: x, py: y + h - 1 },
+                    { px: x + w - 1, py: y + h - 1 }
+                ];
+
+                let unmatchedCorners = 0;
+                for (let c of corners) {
+                    if (c.px < 0 || c.py < 0 || c.px >= context.canvas.width || c.py >= context.canvas.height) continue;
+                    const px = context.getImageData(c.px, c.py, 1, 1).data;
+                    const luma = (px[0] * 299 + px[1] * 587 + px[2] * 114) / 1000;
+                    const isLight = luma > 128;
+                    if (isLight !== isCenterLight) unmatchedCorners++;
+                }
+
+                // If corners match the center, it's a rectangle (0)
+                if (unmatchedCorners < 2) return 0;
+
+                // If corners are different, check if it's an Oval vs Pill vs Rounded
+                // By checking the midpoints of the edges
+                const midEdges = [
+                    { px: cX, py: y }, // Top
+                    { px: cX, py: y + h - 1 }, // Bottom
+                    { px: x, py: cY }, // Left
+                    { px: x + w - 1, py: cY } // Right
+                ];
+
+                let unmatchedEdges = 0;
+                for (let e of midEdges) {
+                    if (e.px < 0 || e.py < 0 || e.px >= context.canvas.width || e.py >= context.canvas.height) continue;
+                    const px = context.getImageData(e.px, e.py, 1, 1).data;
+                    const luma = (px[0] * 299 + px[1] * 587 + px[2] * 114) / 1000;
+                    const isLight = luma > 128;
+                    if (isLight !== isCenterLight) unmatchedEdges++;
+                }
+
+                if (unmatchedEdges >= 2) return 3; // Oval (curves cut into the middle of the edges)
+
+                // Determine width/height ratio to distinguish between Pill and Rounded
+                const ratio = w / h;
+                if (ratio > 1.5 || ratio < 0.6) return 2; // Pill
+                return 1; // Rounded Rectangle
+
+            } catch (e) {
+                return 0; // Default to rectangle on error
+            }
+        };
+
         const dragElement = function (elmnt) {
             var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
 
@@ -658,7 +719,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
             return '#' + m.slice(1, 4).map(x => parseInt(x, 10).toString(16).padStart(2, '0')).join('');
         }
 
-        const createTextBox = function (initialText, startX, startY, startW, startH, bgColor = "rgba(255, 255, 255, 0.95)", txtColor = "#000000", fontSizePx = 16, pageW, pageH) {
+        const createTextBox = function (initialText, startX, startY, startW, startH, bgColor = "rgba(255, 255, 255, 0.95)", txtColor = "#000000", fontSizePx = 16, pageW, pageH, shapeMode = 0) {
             startX = Math.max(0, Math.min(startX, pageW - 20));
             startY = Math.max(0, Math.min(startY, pageH - 20));
             startW = Math.max(10, startW);
@@ -673,8 +734,12 @@ Return a JSON object containing a "translations" array exactly matching the requ
             box.style.backgroundColor = bgColor;
 
             box.style.boxShadow = 'none';
-            box.style.borderRadius = '2px';
-            box.dataset.shapeMode = '0'; // 0=Rect, 1=Rounded, 2=Pill, 3=Oval
+            box.dataset.shapeMode = shapeMode; // 0=Rect, 1=Rounded, 2=Pill, 3=Oval
+
+            if (shapeMode === 0) box.style.borderRadius = '2px';
+            else if (shapeMode === 1) box.style.borderRadius = '12px';
+            else if (shapeMode === 2) box.style.borderRadius = '30px';
+            else if (shapeMode === 3) box.style.borderRadius = '50%';
 
             let currentFontSize = fontSizePx;
 
@@ -726,7 +791,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
                     </div>
                     <div class="color-group">
                         <label>Shape</label>
-                        <button class="shape-btn" title="Cycle Box Shape">Rect</button>
+                        <button class="shape-btn" title="Cycle Box Shape">${shapeMode === 0 ? 'Rect' : shapeMode === 1 ? 'Round' : shapeMode === 2 ? 'Pill' : 'Oval'}</button>
                     </div>
                 </div>
                 
@@ -1241,7 +1306,9 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 let localFontSize = Math.sqrt(textArea / charCount) * 1.0;
                 localFontSize = Math.max(10, Math.min(localFontSize, boxH * 0.9, 25));
 
-                const box = createTextBox(cleanText, xPos, yPos, boxW, boxH, finalBgColor, finalTextColor, localFontSize, canvasW, canvasH);
+                const detectedShape = detectBubbleShape(bgCtx, xPos, yPos, boxW, boxH);
+
+                const box = createTextBox(cleanText, xPos, yPos, boxW, boxH, finalBgColor, finalTextColor, localFontSize, canvasW, canvasH, detectedShape);
 
                 if (isMangaMode && boxH > boxW * 1.5) {
                     box.querySelector('.text-content').classList.add('is-vertical');
