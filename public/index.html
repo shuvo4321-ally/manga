@@ -1101,14 +1101,14 @@ Return a JSON object containing a "translations" array exactly matching the requ
 
         document.addEventListener('keydown', (e) => {
             if (e.target.isContentEditable || e.target.tagName === 'INPUT') return;
-            if (e.key === 'ArrowLeft') goToPrevPage();
-            if (e.key === 'ArrowRight') goToNextPage();
 
             // Keyboard Shortcuts for active boxes (Manual Verification Requirement)
             if (currentHoveredBox) {
+                e.preventDefault(); // Prevent page scrolling when manipulating a box
                 const textContent = currentHoveredBox.querySelector('.text-content');
                 let currentFs = parseFloat(window.getComputedStyle(textContent).fontSize);
 
+                // Font Resizing
                 if (e.key === '+' || e.key === '=') {
                     currentFs += 2;
                     textContent.style.fontSize = currentFs + 'px';
@@ -1117,10 +1117,39 @@ Return a JSON object containing a "translations" array exactly matching the requ
                     currentFs = Math.max(8, currentFs - 2);
                     textContent.style.fontSize = currentFs + 'px';
                 }
+
+                // Deletion
                 if (e.key === 'Delete' || e.key === 'Backspace') {
                     currentHoveredBox.remove();
                     currentHoveredBox = null;
+                    return;
                 }
+
+                // Movement & Resizing
+                let step = e.shiftKey ? 10 : 1;
+                let currentLeft = parseFloat(currentHoveredBox.style.left) || 0;
+                let currentTop = parseFloat(currentHoveredBox.style.top) || 0;
+                let currentWidth = parseFloat(currentHoveredBox.style.width) || 0;
+                let currentHeight = parseFloat(currentHoveredBox.style.height) || 0;
+
+                if (e.ctrlKey || e.metaKey) {
+                    // Resize with Ctrl + Arrows
+                    if (e.key === 'ArrowRight') currentHoveredBox.style.width = Math.max(15, currentWidth + step) + 'px';
+                    if (e.key === 'ArrowLeft') currentHoveredBox.style.width = Math.max(15, currentWidth - step) + 'px';
+                    if (e.key === 'ArrowDown') currentHoveredBox.style.height = Math.max(15, currentHeight + step) + 'px';
+                    if (e.key === 'ArrowUp') currentHoveredBox.style.height = Math.max(15, currentHeight - step) + 'px';
+                } else {
+                    // Move with Arrows
+                    if (e.key === 'ArrowRight') currentHoveredBox.style.left = (currentLeft + step) + 'px';
+                    if (e.key === 'ArrowLeft') currentHoveredBox.style.left = (currentLeft - step) + 'px';
+                    if (e.key === 'ArrowDown') currentHoveredBox.style.top = (currentTop + step) + 'px';
+                    if (e.key === 'ArrowUp') currentHoveredBox.style.top = (currentTop - step) + 'px';
+                }
+
+            } else {
+                // Page Navigation (Only if no box is hovered)
+                if (e.key === 'ArrowLeft') goToPrevPage();
+                if (e.key === 'ArrowRight') goToNextPage();
             }
         });
 
