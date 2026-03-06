@@ -284,7 +284,7 @@
 
         .color-popover.is-open {
             display: flex;
-            gap: 12px;
+            gap: 16px;
             align-items: center;
         }
 
@@ -336,6 +336,22 @@
         .color-group input[type="color"]::-moz-color-swatch {
             border-radius: 50%;
             border: none;
+        }
+
+        .shape-btn {
+            background: #334155;
+            color: #e2e8f0;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .shape-btn:hover {
+            background: #475569;
         }
 
         .color-btn {
@@ -658,6 +674,7 @@ Return a JSON object containing a "translations" array exactly matching the requ
 
             box.style.boxShadow = 'none';
             box.style.borderRadius = '2px';
+            box.dataset.shapeMode = '0'; // 0=Rect, 1=Rounded, 2=Pill, 3=Oval
 
             let currentFontSize = fontSizePx;
 
@@ -706,6 +723,10 @@ Return a JSON object containing a "translations" array exactly matching the requ
                     <div class="color-group">
                         <label>Text</label>
                         <input type="color" class="color-txt-input" value="${txtColor.startsWith('#') ? txtColor : '#000000'}">
+                    </div>
+                    <div class="color-group">
+                        <label>Shape</label>
+                        <button class="shape-btn" title="Cycle Box Shape">Rect</button>
                     </div>
                 </div>
                 
@@ -839,15 +860,36 @@ Return a JSON object containing a "translations" array exactly matching the requ
                 box.remove();
             });
 
-            // Color Picker (Waterdrop) Logic
+            // Color & Shape Picker Logic
             const colorBtn = box.querySelector('.color-btn');
             const colorPopover = box.querySelector('.color-popover');
             const bgInput = box.querySelector('.color-bg-input');
             const txtInput = box.querySelector('.color-txt-input');
+            const shapeBtn = box.querySelector('.shape-btn');
 
             colorBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 colorPopover.classList.toggle('is-open');
+            });
+
+            shapeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                let mode = (parseInt(box.dataset.shapeMode) + 1) % 4;
+                box.dataset.shapeMode = mode;
+
+                if (mode === 0) {
+                    box.style.borderRadius = '2px';
+                    shapeBtn.innerText = 'Rect';
+                } else if (mode === 1) {
+                    box.style.borderRadius = '12px';
+                    shapeBtn.innerText = 'Round';
+                } else if (mode === 2) {
+                    box.style.borderRadius = '30px';
+                    shapeBtn.innerText = 'Pill';
+                } else if (mode === 3) {
+                    box.style.borderRadius = '50%';
+                    shapeBtn.innerText = 'Oval';
+                }
             });
 
             bgInput.addEventListener('input', (e) => {
